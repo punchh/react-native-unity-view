@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Build;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 
@@ -25,9 +26,10 @@ public class UnityUtils {
     private static UnityPlayer unityPlayer;
     private static boolean _isUnityReady;
     private static boolean _isUnityPaused;
+    private static Activity _activity;
+    private static ViewGroup _viewGroup;
 
-    private static final CopyOnWriteArraySet<UnityEventListener> mUnityEventListeners =
-            new CopyOnWriteArraySet<>();
+    private static final CopyOnWriteArraySet<UnityEventListener> mUnityEventListeners = new CopyOnWriteArraySet<>();
 
     public static UnityPlayer getPlayer() {
         if (!_isUnityReady) {
@@ -58,21 +60,23 @@ public class UnityUtils {
                 if((flag & WindowManager.LayoutParams.FLAG_FULLSCREEN) == WindowManager.LayoutParams.FLAG_FULLSCREEN) {
                     fullScreen = true;
                 }
-
                 unityPlayer = new UnityPlayer(activity);
-
                 try {
-                    // wait a moument. fix unity cannot start when startup.
+                    // wait a moment. fix unity cannot start when startup.
                     Thread.sleep( 1000 );
                 } catch (Exception e) {
                 }
-
                 // start unity
                 addUnityViewToBackground();
-                unityPlayer.windowFocusChanged(true);
-                unityPlayer.requestFocus();
-                unityPlayer.resume();
 
+                if (_viewGroup!=null){
+                    addUnityViewToGroup(_viewGroup);
+                }else {
+                    unityPlayer.windowFocusChanged(true);
+                    unityPlayer.requestFocus();
+                    unityPlayer.resume();
+
+                }
                 // restore window layout
                 if (!fullScreen) {
                     activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
@@ -82,6 +86,7 @@ public class UnityUtils {
                 callback.onReady();
             }
         });
+        _activity = activity;
     }
 
     public static void postMessage(String gameObject, String methodName, String message) {
@@ -98,10 +103,37 @@ public class UnityUtils {
         }
     }
 
+    public static void destroy(){
+        if(unityPlayer!=null){
+            if(_activity!=null){
+                _activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        unityPlayer.destroy();
+                        unityPlayer = null;
+                        _isUnityReady = false;
+
+                    }
+                });
+
+            }
+        }
+    }
+
     public static void resume() {
+
         if (unityPlayer != null) {
-            unityPlayer.resume();
+            //unityPlayer.resume();
             _isUnityPaused = false;
+            if(_activity != null)
+            {
+                _activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        addUnityViewToGroup(_viewGroup);
+                    }
+                });
+            }
         }
     }
 
@@ -130,14 +162,16 @@ public class UnityUtils {
             return;
         }
         if (unityPlayer.getParent() != null) {
-            ((ViewGroup)unityPlayer.getParent()).removeView(unityPlayer);
+            ((ViewGroup) unityPlayer.getParent()).removeView(unityPlayer);
+        }else{
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                unityPlayer.setZ(-1f);
+            }
+            final Activity activity = ((Activity) unityPlayer.getContext());
+            ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(1, 1);
+            activity.addContentView(unityPlayer, layoutParams);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            unityPlayer.setZ(-1f);
-        }
-        final Activity activity = ((Activity)unityPlayer.getContext());
-        ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(1, 1);
-        activity.addContentView(unityPlayer, layoutParams);
+
     }
 
     public static void addUnityViewToGroup(ViewGroup group) {
@@ -152,5 +186,6 @@ public class UnityUtils {
         unityPlayer.windowFocusChanged(true);
         unityPlayer.requestFocus();
         unityPlayer.resume();
+        _viewGroup = group;
     }
 }

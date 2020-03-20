@@ -29,7 +29,9 @@ public class UnityNativeModule extends ReactContextBaseJavaModule implements Uni
         UnityUtils.createPlayer(getCurrentActivity(), new UnityUtils.CreateCallback() {
             @Override
             public void onReady() {
+
                 promise.resolve(true);
+
             }
         });
     }
@@ -47,6 +49,11 @@ public class UnityNativeModule extends ReactContextBaseJavaModule implements Uni
     @ReactMethod
     public void resume() {
         UnityUtils.resume();
+    }
+
+    @ReactMethod
+    public void destroy() {
+        UnityUtils.destroy();
     }
 
     @Override
